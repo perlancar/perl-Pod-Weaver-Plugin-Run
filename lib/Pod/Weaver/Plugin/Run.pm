@@ -11,39 +11,30 @@ use List::Util qw(first);
 
 has include_module => (
     is => 'rw',
-    isa => 'Str',
 );
 has include_module_pattern => (
     is => 'rw',
-    isa => 'Str',
 );
 has include_file => (
     is => 'rw',
-    isa => 'Str',
 );
 has include_file_pattern => (
     is => 'rw',
-    isa => 'Str',
 );
 has exclude_module => (
     is => 'rw',
-    isa => 'Str',
 );
 has exclude_module_pattern => (
     is => 'rw',
-    isa => 'Str',
 );
 has exclude_file => (
     is => 'rw',
-    isa => 'Str',
 );
 has exclude_file_pattern => (
     is => 'rw',
-    isa => 'Str',
 );
 has code => (
     is => 'rw',
-    isa => 'Str',
 );
 
 sub mvp_multivalue_args { qw(
@@ -61,18 +52,6 @@ sub mvp_multivalue_args { qw(
 
 sub weave_section {
     my ($self, $document, $input) = @_;
-
-    # only compile code once
-    if (!$self->{_compiled_code}) {
-        my $code = $self->code;
-        die "Please specify code" unless $code;
-        $code = join("\n", @$code) if ref($code) eq 'ARRAY';
-        $self->log(["compiling code ..."]);
-        $code = "sub { $code }" unless $code =~ /\A\s*sub\s*\{/s;
-        $self->log(["code is: %s", $code]);
-        eval "\$self->{_compiled_code} = $code";
-        die "Can't compile code '$code': $@" if $@;
-    }
 
     my $filename = $input->{filename} || 'file';
 
@@ -204,23 +183,26 @@ sub weave_section {
 
     local @INC = ("lib", @INC);
 
-    # run code
-    $self->log(["running code on file %s (module %s)", $filename, $package]);
-    my %args = (
-        args     => \@_,
-        document => $document,
-        input    => $input,
-        filename => $filename,
-        package  => $package,
-        module   => $package, # synonym
-    );
+    # XXX should compile code once, but why keeps compiling code?
+    if (!$self->{_compiled_code}) {
+        my $code = $self->code;
+        die "Please specify code" unless $code;
+        $code = join("\n", @$code) if ref($code) eq 'ARRAY';
+        $self->log(["compiling code ..."]);
+        $code = "sub { $code }" unless $code =~ /\A\s*sub\s*\{/s;
+        $self->log(["code is: %s", $code]);
+        $self->{_compiled_code} = eval $code;
+        die "Can't compile code '$code': $@" if $@;
+    }
+
+    $self->log(["running code on file %s", $filename]);
     $self->{_compiled_code}->($self, $document, $input);
 }
 
 1;
 # ABSTRACT: Write Pod::Weaver::Plugin directly in weaver.ini
 
-=for Pod::Coverage weave_section
+=for Pod::Coverage ^(weave_section|mvp_multivalue_args)$
 
 =head1 SYNOPSIS
 
